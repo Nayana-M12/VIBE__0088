@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   timestamp,
@@ -210,6 +211,57 @@ export const insertUserCouponSchema = createInsertSchema(userCoupons).omit({
 export type InsertUserCoupon = z.infer<typeof insertUserCouponSchema>;
 export type UserCoupon = typeof userCoupons.$inferSelect;
 
+// Post likes
+export const postLikes = pgTable("post_likes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  postId: varchar("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("unique_post_likes_user_post").on(table.userId, table.postId),
+]);
+
+export const insertPostLikeSchema = createInsertSchema(postLikes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPostLike = z.infer<typeof insertPostLikeSchema>;
+export type PostLike = typeof postLikes.$inferSelect;
+
+// Post comments
+export const postComments = pgTable("post_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  postId: varchar("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPostCommentSchema = createInsertSchema(postComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
+export type PostComment = typeof postComments.$inferSelect;
+
+// User follows
+export const userFollows = pgTable("user_follows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  followerId: varchar("follower_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  followingId: varchar("following_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserFollow = z.infer<typeof insertUserFollowSchema>;
+export type UserFollow = typeof userFollows.$inferSelect;
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
@@ -220,11 +272,13 @@ export const usersRelations = relations(users, ({ many }) => ({
   userCoupons: many(userCoupons),
 }));
 
-export const postsRelations = relations(posts, ({ one }) => ({
+export const postsRelations = relations(posts, ({ one, many }) => ({
   user: one(users, {
     fields: [posts.userId],
     references: [users.id],
   }),
+  postLikes: many(postLikes),
+  postComments: many(postComments),
 }));
 
 export const energyRecordsRelations = relations(energyRecords, ({ one }) => ({
@@ -267,5 +321,38 @@ export const userCouponsRelations = relations(userCoupons, ({ one }) => ({
   coupon: one(coupons, {
     fields: [userCoupons.couponId],
     references: [coupons.id],
+  }),
+}));
+
+export const postLikesRelations = relations(postLikes, ({ one }) => ({
+  user: one(users, {
+    fields: [postLikes.userId],
+    references: [users.id],
+  }),
+  post: one(posts, {
+    fields: [postLikes.postId],
+    references: [posts.id],
+  }),
+}));
+
+export const postCommentsRelations = relations(postComments, ({ one }) => ({
+  user: one(users, {
+    fields: [postComments.userId],
+    references: [users.id],
+  }),
+  post: one(posts, {
+    fields: [postComments.postId],
+    references: [posts.id],
+  }),
+}));
+
+export const userFollowsRelations = relations(userFollows, ({ one }) => ({
+  follower: one(users, {
+    fields: [userFollows.followerId],
+    references: [users.id],
+  }),
+  following: one(users, {
+    fields: [userFollows.followingId],
+    references: [users.id],
   }),
 }));

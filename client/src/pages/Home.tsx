@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Leaf, Droplet, Zap, Heart, Share2 } from "lucide-react";
+import { Leaf, Droplet, Zap, Heart, MessageCircle, UserPlus } from "lucide-react";
 import type { Post, User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -166,6 +166,65 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label:
 }
 
 function PostCard({ post }: { post: PostWithUser }) {
+  const { user: currentUser } = useAuth();
+  const { toast } = useToast();
+  const [showComments, setShowComments] = useState(false);
+  const [commentContent, setCommentContent] = useState("");
+
+  const { data: likeData } = useQuery({
+    queryKey: [`/api/posts/${post.id}/likes`],
+  });
+
+  const { data: comments } = useQuery({
+    queryKey: [`/api/posts/${post.id}/comments`],
+    enabled: showComments,
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/posts/${post.id}/like`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/posts/${post.id}/likes`] });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        window.location.href = "/api/login";
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update like status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: async (content: string) => {
+      await apiRequest("POST", `/api/posts/${post.id}/comments`, { content });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/posts/${post.id}/comments`] });
+      setCommentContent("");
+      toast({
+        title: "Comment posted!",
+        description: "Your comment has been added.",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        window.location.href = "/api/login";
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to post comment",
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <Card className="hover-elevate" data-testid={`card-post-${post.id}`}>
       <CardContent className="p-6">
@@ -211,16 +270,68 @@ function PostCard({ post }: { post: PostWithUser }) {
                 )}
               </div>
             )}
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Heart className="w-4 h-4" />
-                {post.likes || 0}
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+                onClick={() => likeMutation.mutate()}
+                disabled={likeMutation.isPending}
+                data-testid={`button-like-${post.id}`}
+              >
+                <Heart className={`w-4 h-4 ${likeData?.hasLiked ? 'fill-primary text-primary' : ''}`} />
+                {likeData?.count || post.likes || 0}
               </Button>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Share2 className="w-4 h-4" />
-                Share
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowComments(!showComments)}
+                data-testid={`button-comments-${post.id}`}
+              >
+                <MessageCircle className="w-4 h-4" />
+                {comments?.length || 0}
               </Button>
             </div>
+
+            {showComments && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="space-y-3">
+                  {comments && comments.length > 0 ? (
+                    comments.map((comment: any) => (
+                      <div key={comment.id} className="flex items-start gap-2" data-testid={`comment-${comment.id}`}>
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={comment.user?.profileImageUrl || undefined} className="object-cover" />
+                          <AvatarFallback className="text-xs">{comment.user?.firstName?.[0] || "U"}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{comment.user?.firstName || "User"}</p>
+                          <p className="text-sm text-muted-foreground">{comment.content}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-2">No comments yet</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder="Add a comment..."
+                    value={commentContent}
+                    onChange={(e) => setCommentContent(e.target.value)}
+                    className="min-h-[60px] resize-none"
+                    data-testid={`input-comment-${post.id}`}
+                  />
+                  <Button
+                    onClick={() => commentMutation.mutate(commentContent)}
+                    disabled={!commentContent.trim() || commentMutation.isPending}
+                    data-testid={`button-submit-comment-${post.id}`}
+                  >
+                    {commentMutation.isPending ? "Posting..." : "Post"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

@@ -9,6 +9,9 @@ import {
   userScratchCards,
   coupons,
   userCoupons,
+  postLikes,
+  postComments,
+  userFollows,
   type User,
   type UpsertUser,
   type InsertPost,
@@ -27,9 +30,15 @@ import {
   type InsertCoupon,
   type UserCoupon,
   type InsertUserCoupon,
+  type InsertPostLike,
+  type PostLike,
+  type InsertPostComment,
+  type PostComment,
+  type InsertUserFollow,
+  type UserFollow,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -63,6 +72,23 @@ export interface IStorage {
   getAllCoupons(): Promise<Coupon[]>;
   createUserCoupon(data: InsertUserCoupon): Promise<UserCoupon>;
   getUserCoupons(userId: string): Promise<any[]>;
+  
+  // Social features - Post likes
+  likePost(userId: string, postId: string): Promise<PostLike | null>;
+  unlikePost(userId: string, postId: string): Promise<void>;
+  getPostLikeCount(postId: string): Promise<number>;
+  hasUserLikedPost(userId: string, postId: string): Promise<boolean>;
+  
+  // Social features - Post comments
+  createComment(data: InsertPostComment): Promise<any>;
+  getPostComments(postId: string): Promise<any[]>;
+  
+  // Social features - User follows
+  followUser(followerId: string, followingId: string): Promise<UserFollow>;
+  unfollowUser(followerId: string, followingId: string): Promise<void>;
+  isFollowing(followerId: string, followingId: string): Promise<boolean>;
+  getFollowerCount(userId: string): Promise<number>;
+  getFollowingCount(userId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -271,6 +297,103 @@ export class DatabaseStorage implements IStorage {
       ...r,
       coupon: r.coupon,
     }));
+  }
+
+  // Social features - Post likes
+  async likePost(userId: string, postId: string): Promise<PostLike | null> {
+    try {
+      const [like] = await db.insert(postLikes).values({ userId, postId }).returning();
+      await db.update(posts).set({ likes: sql`${posts.likes} + 1` }).where(eq(posts.id, postId));
+      return like;
+    } catch (error: any) {
+      if (error.code === '23505') {
+        const [existing] = await db.select().from(postLikes).where(
+          and(eq(postLikes.userId, userId), eq(postLikes.postId, postId))
+        );
+        return existing || null;
+      }
+      throw error;
+    }
+  }
+
+  async unlikePost(userId: string, postId: string): Promise<void> {
+    const result = await db.delete(postLikes).where(and(eq(postLikes.userId, userId), eq(postLikes.postId, postId))).returning();
+    if (result.length > 0) {
+      await db.update(posts).set({ likes: sql`GREATEST(${posts.likes} - 1, 0)` }).where(eq(posts.id, postId));
+    }
+  }
+
+  async getPostLikeCount(postId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(postLikes).where(eq(postLikes.postId, postId));
+    return Number(result[0]?.count ?? 0);
+  }
+
+  async hasUserLikedPost(userId: string, postId: string): Promise<boolean> {
+    const [like] = await db
+      .select()
+      .from(postLikes)
+      .where(and(eq(postLikes.userId, userId), eq(postLikes.postId, postId)));
+    return !!like;
+  }
+
+  // Social features - Post comments
+  async createComment(data: InsertPostComment): Promise<any> {
+    const [comment] = await db.insert(postComments).values(data).returning();
+    const [user] = await db.select().from(users).where(eq(users.id, data.userId));
+    return { ...comment, user };
+  }
+
+  async getPostComments(postId: string): Promise<any[]> {
+    const results = await db
+      .select({
+        id: postComments.id,
+        userId: postComments.userId,
+        postId: postComments.postId,
+        content: postComments.content,
+        createdAt: postComments.createdAt,
+        user: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(postComments)
+      .leftJoin(users, eq(postComments.userId, users.id))
+      .where(eq(postComments.postId, postId))
+      .orderBy(desc(postComments.createdAt));
+    
+    return results.map(r => ({ ...r, user: r.user }));
+  }
+
+  // Social features - User follows
+  async followUser(followerId: string, followingId: string): Promise<UserFollow> {
+    const [follow] = await db.insert(userFollows).values({ followerId, followingId }).returning();
+    return follow;
+  }
+
+  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+    await db.delete(userFollows).where(
+      and(eq(userFollows.followerId, followerId), eq(userFollows.followingId, followingId))
+    );
+  }
+
+  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+    const [follow] = await db
+      .select()
+      .from(userFollows)
+      .where(and(eq(userFollows.followerId, followerId), eq(userFollows.followingId, followingId)));
+    return !!follow;
+  }
+
+  async getFollowerCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(userFollows).where(eq(userFollows.followingId, userId));
+    return Number(result[0]?.count ?? 0);
+  }
+
+  async getFollowingCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(userFollows).where(eq(userFollows.followerId, userId));
+    return Number(result[0]?.count ?? 0);
   }
 }
 

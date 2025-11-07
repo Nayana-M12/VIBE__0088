@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { analyzeEnergyUsage, analyzeWaterUsage, chatWithAdvisor } from "./openai";
-import { insertPostSchema, insertEnergyRecordSchema, insertWaterRecordSchema, insertEcoRouteSchema } from "@shared/schema";
+import { insertPostSchema, insertEnergyRecordSchema, insertWaterRecordSchema, insertEcoRouteSchema, insertPostCommentSchema } from "@shared/schema";
 
 // Helper function to check seasonal coupon availability
 function checkSeasonalAvailability(eventType: string, now: Date): boolean {
@@ -60,6 +60,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating post:", error);
       res.status(400).json({ message: "Failed to create post" });
+    }
+  });
+
+  // Social features - Post likes
+  app.post('/api/posts/:postId/like', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { postId } = req.params;
+      
+      const hasLiked = await storage.hasUserLikedPost(userId, postId);
+      if (hasLiked) {
+        await storage.unlikePost(userId, postId);
+        res.json({ liked: false });
+      } else {
+        await storage.likePost(userId, postId);
+        res.json({ liked: true });
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      res.status(500).json({ message: "Failed to toggle like" });
+    }
+  });
+
+  app.get('/api/posts/:postId/likes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { postId } = req.params;
+      
+      const count = await storage.getPostLikeCount(postId);
+      const hasLiked = await storage.hasUserLikedPost(userId, postId);
+      
+      res.json({ count, hasLiked });
+    } catch (error) {
+      console.error("Error fetching like data:", error);
+      res.status(500).json({ message: "Failed to fetch like data" });
+    }
+  });
+
+  // Social features - Post comments
+  app.post('/api/posts/:postId/comments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { postId } = req.params;
+      
+      const commentData = insertPostCommentSchema.parse({
+        userId,
+        postId,
+        content: req.body.content,
+      });
+      
+      const comment = await storage.createComment(commentData);
+      res.json(comment);
+    } catch (error) {
+      console.error("Error creating comment:", error);
+      res.status(400).json({ message: "Failed to create comment" });
+    }
+  });
+
+  app.get('/api/posts/:postId/comments', isAuthenticated, async (req: any, res) => {
+    try {
+      const { postId } = req.params;
+      const comments = await storage.getPostComments(postId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  // Social features - User follows
+  app.post('/api/users/:userId/follow', isAuthenticated, async (req: any, res) => {
+    try {
+      const followerId = req.user.claims.sub;
+      const { userId: followingId } = req.params;
+      
+      if (followerId === followingId) {
+        return res.status(400).json({ message: "Cannot follow yourself" });
+      }
+      
+      const isFollowing = await storage.isFollowing(followerId, followingId);
+      if (isFollowing) {
+        await storage.unfollowUser(followerId, followingId);
+        res.json({ following: false });
+      } else {
+        await storage.followUser(followerId, followingId);
+        res.json({ following: true });
+      }
+    } catch (error) {
+      console.error("Error toggling follow:", error);
+      res.status(500).json({ message: "Failed to toggle follow" });
+    }
+  });
+
+  app.get('/api/users/:userId/follow-stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = req.user.claims.sub;
+      const { userId } = req.params;
+      
+      const [followerCount, followingCount, isFollowing] = await Promise.all([
+        storage.getFollowerCount(userId),
+        storage.getFollowingCount(userId),
+        storage.isFollowing(currentUserId, userId),
+      ]);
+      
+      res.json({ followerCount, followingCount, isFollowing });
+    } catch (error) {
+      console.error("Error fetching follow stats:", error);
+      res.status(500).json({ message: "Failed to fetch follow stats" });
     }
   });
 
