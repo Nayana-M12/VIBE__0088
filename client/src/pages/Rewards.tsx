@@ -224,8 +224,8 @@ export default function Rewards() {
                 </div>
               ) : coupons && coupons.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {coupons.map(coupon => (
-                    <Card key={coupon.id} className="hover-elevate">
+                  {coupons.map((coupon: any) => (
+                    <Card key={coupon.id} className={`hover-elevate ${!coupon.isAvailable ? 'opacity-60' : ''}`}>
                       <CardContent className="p-6">
                         <div className="flex items-start gap-4">
                           <div className="flex items-center justify-center w-14 h-14 rounded-lg bg-primary/10 text-primary flex-shrink-0">
@@ -244,15 +244,18 @@ export default function Rewards() {
                                 </Badge>
                               )}
                             </div>
+                            {coupon.availabilityMessage && !coupon.isAvailable && (
+                              <p className="text-xs text-muted-foreground mb-2">{coupon.availabilityMessage}</p>
+                            )}
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium">{coupon.pointsCost} points</span>
                               <Button
                                 size="sm"
                                 onClick={() => redeemCoupon.mutate(coupon.id)}
-                                disabled={!user || user.points < coupon.pointsCost || redeemCoupon.isPending}
+                                disabled={!user || user.points < coupon.pointsCost || redeemCoupon.isPending || !coupon.isAvailable}
                                 data-testid={`button-redeem-coupon-${coupon.id}`}
                               >
-                                {redeemCoupon.isPending ? "Claiming..." : "Claim"}
+                                {redeemCoupon.isPending ? "Claiming..." : (!coupon.isAvailable ? "Unavailable" : "Claim")}
                               </Button>
                             </div>
                           </div>

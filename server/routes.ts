@@ -6,6 +6,24 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { analyzeEnergyUsage, analyzeWaterUsage, chatWithAdvisor } from "./openai";
 import { insertPostSchema, insertEnergyRecordSchema, insertWaterRecordSchema, insertEcoRouteSchema } from "@shared/schema";
 
+// Helper function to check seasonal coupon availability
+function checkSeasonalAvailability(eventType: string, now: Date): boolean {
+  const month = now.getMonth() + 1; // 1-12
+  const day = now.getDate();
+  
+  // World Environment Day: June 5 (available June 1-10)
+  if (eventType === 'world_environment_day') {
+    return month === 6 && day >= 1 && day <= 10;
+  }
+  
+  // App Festival Day: December 31 (available December 25-31)
+  if (eventType === 'app_festival') {
+    return month === 12 && day >= 25 && day <= 31;
+  }
+  
+  return true; // Non-seasonal coupons are always available
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -280,7 +298,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/rewards/coupons', isAuthenticated, async (req: any, res) => {
     try {
       const coupons = await storage.getAllCoupons();
-      res.json(coupons);
+      const now = new Date();
+      
+      // Add availability status to each coupon
+      const couponsWithAvailability = coupons.map(coupon => ({
+        ...coupon,
+        isAvailable: coupon.eventType ? checkSeasonalAvailability(coupon.eventType, now) : true,
+        availabilityMessage: coupon.eventType 
+          ? (coupon.eventType === 'world_environment_day' 
+              ? 'Available June 1-10 (World Environment Day)' 
+              : 'Available December 25-31 (App Festival Day)')
+          : null
+      }));
+      
+      res.json(couponsWithAvailability);
     } catch (error) {
       console.error("Error fetching coupons:", error);
       res.status(500).json({ message: "Failed to fetch coupons" });
@@ -311,12 +342,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Coupon not found" });
       }
 
+      // Check seasonal availability for special event coupons
+      const now = new Date();
+      if (coupon.eventType) {
+        const isAvailable = checkSeasonalAvailability(coupon.eventType, now);
+        if (!isAvailable) {
+          return res.status(400).json({ 
+            message: `This coupon is only available during ${coupon.eventType === 'world_environment_day' ? 'World Environment Day (June 5)' : 'App Festival Day (December 31)'}` 
+          });
+        }
+      }
+
+      // Check if coupon is still valid
+      if (coupon.validUntil && new Date(coupon.validUntil) < now) {
+        return res.status(400).json({ message: "This coupon has expired" });
+      }
+
       if (!user || user.points < coupon.pointsCost) {
         return res.status(400).json({ message: "Insufficient points" });
       }
 
       // Deduct points
       await storage.updateUserPoints(userId, -coupon.pointsCost);
+
+      // Generate unique coupon code
+      const couponCode = `ECO-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
       // Create user coupon
       const userCoupon = await storage.createUserCoupon({
