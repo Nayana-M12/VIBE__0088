@@ -89,6 +89,13 @@ export interface IStorage {
   isFollowing(followerId: string, followingId: string): Promise<boolean>;
   getFollowerCount(userId: string): Promise<number>;
   getFollowingCount(userId: string): Promise<number>;
+  
+  // Leaderboard
+  getLeaderboard(): Promise<{
+    byPoints: User[];
+    byCarbonSaved: User[];
+    byWaterSaved: User[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -394,6 +401,32 @@ export class DatabaseStorage implements IStorage {
   async getFollowingCount(userId: string): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)` }).from(userFollows).where(eq(userFollows.followerId, userId));
     return Number(result[0]?.count ?? 0);
+  }
+
+  // Leaderboard
+  async getLeaderboard(): Promise<{
+    byPoints: User[];
+    byCarbonSaved: User[];
+    byWaterSaved: User[];
+  }> {
+    const safeFields = {
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      profileImageUrl: users.profileImageUrl,
+      points: users.points,
+      totalCarbonSaved: users.totalCarbonSaved,
+      totalWaterSaved: users.totalWaterSaved,
+    };
+
+    const [byPoints, byCarbonSaved, byWaterSaved] = await Promise.all([
+      db.select(safeFields).from(users).orderBy(desc(users.points)).limit(10),
+      db.select(safeFields).from(users).orderBy(desc(users.totalCarbonSaved)).limit(10),
+      db.select(safeFields).from(users).orderBy(desc(users.totalWaterSaved)).limit(10),
+    ]);
+
+    return { byPoints, byCarbonSaved, byWaterSaved };
   }
 }
 

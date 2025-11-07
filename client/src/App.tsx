@@ -15,6 +15,7 @@ import Routes from "@/pages/Routes";
 import Advisor from "@/pages/Advisor";
 import Rewards from "@/pages/Rewards";
 import Progress from "@/pages/Progress";
+import Leaderboard from "@/pages/Leaderboard";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -32,6 +33,7 @@ function Router() {
           <Route path="/advisor" component={Advisor} />
           <Route path="/rewards" component={Rewards} />
           <Route path="/progress" component={Progress} />
+          <Route path="/leaderboard" component={Leaderboard} />
         </>
       )}
       <Route component={NotFound} />

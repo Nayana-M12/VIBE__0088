@@ -6,6 +6,7 @@ import {
   Sparkles,
   Gift,
   TrendingUp,
+  Trophy,
   User,
   LogOut,
 } from "lucide-react";
@@ -57,6 +58,11 @@ const menuItems = [
     title: "Rewards",
     url: "/rewards",
     icon: Gift,
+  },
+  {
+    title: "Leaderboard",
+    url: "/leaderboard",
+    icon: Trophy,
   },
   {
     title: "Progress",
