@@ -2,7 +2,7 @@
 
 ## Overview
 
-Green Intelligence is an AI-powered sustainability platform that gamifies eco-friendly behavior through resource usage prediction and rewards. The platform enables users to track energy consumption, water usage, and eco-friendly transportation routes while earning points redeemable for scratch cards and coupons. Built with a modern React frontend and Express backend, it leverages OpenAI's GPT-5 for intelligent analysis of consumption patterns and personalized sustainability recommendations.
+Green Intelligence is an AI-powered sustainability platform that gamifies eco-friendly behavior through resource usage prediction and rewards. The platform enables users to track energy consumption, water usage, and eco-friendly transportation routes while earning points redeemable for scratch cards and coupons. Built with a modern React frontend and Express backend, it leverages OpenAI's GPT-4o for intelligent analysis of consumption patterns and personalized sustainability recommendations.
 
 ## User Preferences
 
