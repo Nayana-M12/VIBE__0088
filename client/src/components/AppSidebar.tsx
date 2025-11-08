@@ -9,6 +9,8 @@ import {
   Trophy,
   User,
   LogOut,
+  FileText,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +52,11 @@ const menuItems = [
     icon: Map,
   },
   {
+    title: "Submit Proof",
+    url: "/proof",
+    icon: FileText,
+  },
+  {
     title: "AI Advisor",
     url: "/advisor",
     icon: Sparkles,
@@ -63,6 +70,11 @@ const menuItems = [
     title: "Leaderboard",
     url: "/leaderboard",
     icon: Trophy,
+  },
+  {
+    title: "Bond",
+    url: "/community",
+    icon: Users,
   },
   {
     title: "Progress",
@@ -118,8 +130,8 @@ export function AppSidebar() {
               <p className="text-sm font-medium truncate" data-testid="text-user-name">
                 {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}
               </p>
-              <Badge variant="secondary" className="mt-1" data-testid="badge-points">
-                {user.points || 0} points
+              <Badge variant="secondary" className="mt-1" data-testid="badge-ecoBits">
+                {user.ecoBits || 0} ecoBits
               </Badge>
             </div>
           </div>

@@ -33,7 +33,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  points: integer("points").notNull().default(0),
+  ecoBits: integer("eco_bits").notNull().default(0),
   totalCarbonSaved: real("total_carbon_saved").notNull().default(0),
   totalWaterSaved: real("total_water_saved").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -49,9 +49,11 @@ export const posts = pgTable("posts", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   achievementType: varchar("achievement_type").notNull(), // "energy", "water", "route", "general"
+  mediaUrl: text("media_url"), // URL to uploaded image/video
+  mediaType: varchar("media_type"), // "image" or "video"
   carbonSaved: real("carbon_saved"),
   waterSaved: real("water_saved"),
-  pointsEarned: integer("points_earned"),
+  ecoBitsEarned: integer("eco_bits_earned"),
   likes: integer("likes").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -74,7 +76,7 @@ export const energyRecords = pgTable("energy_records", {
   predictedWastage: real("predicted_wastage"),
   wastagePercentage: real("wastage_percentage"),
   aiInsights: text("ai_insights"),
-  pointsEarned: integer("points_earned").notNull().default(0),
+  ecoBitsEarned: integer("eco_bits_earned").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -98,7 +100,7 @@ export const waterRecords = pgTable("water_records", {
   consumption: real("consumption").notNull(), // liters
   efficiencyScore: integer("efficiency_score"), // 0-100
   aiInsights: text("ai_insights"),
-  pointsEarned: integer("points_earned").notNull().default(0),
+  ecoBitsEarned: integer("eco_bits_earned").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -120,7 +122,7 @@ export const ecoRoutes = pgTable("eco_routes", {
   endLocation: varchar("end_location").notNull(),
   distance: real("distance").notNull(), // km
   carbonSaved: real("carbon_saved").notNull(), // kg CO2
-  pointsEarned: integer("points_earned").notNull().default(0),
+  ecoBitsEarned: integer("eco_bits_earned").notNull().default(0),
   routeType: varchar("route_type").notNull(), // "eco", "standard"
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -139,7 +141,7 @@ export const scratchCards = pgTable("scratch_cards", {
   name: varchar("name").notNull(),
   description: text("description").notNull(),
   category: varchar("category").notNull(), // "home_decor", "personal_essentials"
-  pointsCost: integer("points_cost").notNull(),
+  ecoBitsCost: integer("eco_bits_cost").notNull(),
   imageUrl: varchar("image_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -176,12 +178,13 @@ export const coupons = pgTable("coupons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   description: text("description").notNull(),
+  tier: varchar("tier").notNull(), // "golden", "platinum", "platinum_premium"
   discountPercentage: integer("discount_percentage").notNull(),
   brandName: varchar("brand_name").notNull(),
   category: varchar("category").notNull(), // "products", "courses"
-  pointsCost: integer("points_cost").notNull(),
+  ecoBitsCost: integer("eco_bits_cost").notNull(),
   validUntil: timestamp("valid_until").notNull(),
-  eventType: varchar("event_type"), // "world_environment_day", "app_festival"
+  eventType: varchar("event_type"), // "world_warrior_drive", "earth_impact_fest", "green_diwali_fiesta"
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -246,12 +249,14 @@ export const insertPostCommentSchema = createInsertSchema(postComments).omit({
 export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
 export type PostComment = typeof postComments.$inferSelect;
 
-// User follows
+// User follows (connection requests)
 export const userFollows = pgTable("user_follows", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  followerId: varchar("follower_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  followingId: varchar("following_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  followerId: varchar("follower_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Person sending request
+  followingId: varchar("following_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Person receiving request
+  status: varchar("status").notNull().default("pending"), // "pending", "accepted", "rejected"
   createdAt: timestamp("created_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
 });
 
 export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
@@ -262,6 +267,33 @@ export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
 export type InsertUserFollow = z.infer<typeof insertUserFollowSchema>;
 export type UserFollow = typeof userFollows.$inferSelect;
 
+// Proof documents for verification
+export const proofDocuments = pgTable("proof_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }),
+  proofType: varchar("proof_type").notNull(), // "transport_ticket", "carpool_receipt", etc.
+  fileUrl: text("file_url").notNull(),
+  fileName: varchar("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  verificationStatus: varchar("verification_status").notNull().default("pending"), // "pending", "approved", "rejected", "auto_approved"
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: varchar("verified_by"),
+  rejectionReason: text("rejection_reason"),
+  ecoBitsAwarded: integer("eco_bits_awarded").notNull().default(0),
+  metadata: jsonb("metadata"), // Additional info like date, amount, vendor
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const insertProofDocumentSchema = createInsertSchema(proofDocuments).omit({
+  id: true,
+  uploadedAt: true,
+  verifiedAt: true,
+});
+
+export type InsertProofDocument = z.infer<typeof insertProofDocumentSchema>;
+export type ProofDocument = typeof proofDocuments.$inferSelect;
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
@@ -270,6 +302,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   ecoRoutes: many(ecoRoutes),
   userScratchCards: many(userScratchCards),
   userCoupons: many(userCoupons),
+  proofDocuments: many(proofDocuments),
 }));
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
@@ -279,6 +312,7 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
   }),
   postLikes: many(postLikes),
   postComments: many(postComments),
+  proofDocuments: many(proofDocuments),
 }));
 
 export const energyRecordsRelations = relations(energyRecords, ({ one }) => ({
@@ -354,5 +388,16 @@ export const userFollowsRelations = relations(userFollows, ({ one }) => ({
   following: one(users, {
     fields: [userFollows.followingId],
     references: [users.id],
+  }),
+}));
+
+export const proofDocumentsRelations = relations(proofDocuments, ({ one }) => ({
+  user: one(users, {
+    fields: [proofDocuments.userId],
+    references: [users.id],
+  }),
+  post: one(posts, {
+    fields: [proofDocuments.postId],
+    references: [posts.id],
   }),
 }));

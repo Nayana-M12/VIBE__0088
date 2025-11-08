@@ -8,6 +8,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
 import Home from "@/pages/Home";
 import Energy from "@/pages/Energy";
 import Water from "@/pages/Water";
@@ -16,12 +18,16 @@ import Advisor from "@/pages/Advisor";
 import Rewards from "@/pages/Rewards";
 import Progress from "@/pages/Progress";
 import Leaderboard from "@/pages/Leaderboard";
+import Bond from "@/pages/Community";
+import ProofSubmission from "@/pages/ProofSubmission";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <Switch>
+      <Route path="/login" component={Login} />
+      <Route path="/signup" component={Signup} />
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
@@ -32,8 +38,10 @@ function Router() {
           <Route path="/routes" component={Routes} />
           <Route path="/advisor" component={Advisor} />
           <Route path="/rewards" component={Rewards} />
+          <Route path="/proof" component={ProofSubmission} />
           <Route path="/progress" component={Progress} />
           <Route path="/leaderboard" component={Leaderboard} />
+          <Route path="/community" component={Bond} />
         </>
       )}
       <Route component={NotFound} />

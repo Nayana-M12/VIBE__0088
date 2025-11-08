@@ -26,10 +26,10 @@ export default function Landing() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button size="lg" asChild data-testid="button-get-started" className="min-w-[200px]">
-                <a href="/api/login">Get Started</a>
+                <a href="/signup">Get Started</a>
               </Button>
               <Button size="lg" variant="outline" asChild className="min-w-[200px]" data-testid="button-sign-in">
-                <a href="/api/login">Sign In</a>
+                <a href="/login">Sign In</a>
               </Button>
             </div>
           </div>
@@ -65,7 +65,7 @@ export default function Landing() {
           <FeatureCard
             icon={<Gift className="w-6 h-6" />}
             title="Rewards System"
-            description="Earn points for eco-friendly choices and redeem for scratch cards & coupons"
+            description="Earn ecoBits for eco-friendly choices and redeem for scratch cards & coupons"
           />
           <FeatureCard
             icon={<TrendingUp className="w-6 h-6" />}
@@ -85,7 +85,7 @@ export default function Landing() {
             Join thousands of users making a positive impact on the planet while earning rewards
           </p>
           <Button size="lg" asChild data-testid="button-cta-login">
-            <a href="/api/login">Join Now - It's Free</a>
+            <a href="/signup">Join Now - It's Free</a>
           </Button>
         </div>
       </div>

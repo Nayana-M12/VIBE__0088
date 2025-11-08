@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Leaf, Droplet, Zap, Trophy, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { EnergyRecord, WaterRecord, EcoRoute, Post } from "@shared/schema";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 export default function Progress() {
   const { user } = useAuth();
@@ -26,35 +26,35 @@ export default function Progress() {
     queryKey: ["/api/posts"],
   });
 
-  const totalPointsEarned = 
-    (energyRecords?.reduce((sum, r) => sum + r.pointsEarned, 0) || 0) +
-    (waterRecords?.reduce((sum, r) => sum + r.pointsEarned, 0) || 0) +
-    (routes?.reduce((sum, r) => sum + r.pointsEarned, 0) || 0);
+  const totalEcoBitsEarned = 
+    (energyRecords?.reduce((sum, r) => sum + r.ecoBitsEarned, 0) || 0) +
+    (waterRecords?.reduce((sum, r) => sum + r.ecoBitsEarned, 0) || 0) +
+    (routes?.reduce((sum, r) => sum + r.ecoBitsEarned, 0) || 0);
 
   const achievementsData = [
     {
       month: energyRecords?.[5]?.month || "",
-      points: (energyRecords?.[5]?.pointsEarned || 0) + (waterRecords?.[5]?.pointsEarned || 0),
+      ecoBits: (energyRecords?.[5]?.ecoBitsEarned || 0) + (waterRecords?.[5]?.ecoBitsEarned || 0),
     },
     {
       month: energyRecords?.[4]?.month || "",
-      points: (energyRecords?.[4]?.pointsEarned || 0) + (waterRecords?.[4]?.pointsEarned || 0),
+      ecoBits: (energyRecords?.[4]?.ecoBitsEarned || 0) + (waterRecords?.[4]?.ecoBitsEarned || 0),
     },
     {
       month: energyRecords?.[3]?.month || "",
-      points: (energyRecords?.[3]?.pointsEarned || 0) + (waterRecords?.[3]?.pointsEarned || 0),
+      ecoBits: (energyRecords?.[3]?.ecoBitsEarned || 0) + (waterRecords?.[3]?.ecoBitsEarned || 0),
     },
     {
       month: energyRecords?.[2]?.month || "",
-      points: (energyRecords?.[2]?.pointsEarned || 0) + (waterRecords?.[2]?.pointsEarned || 0),
+      ecoBits: (energyRecords?.[2]?.ecoBitsEarned || 0) + (waterRecords?.[2]?.ecoBitsEarned || 0),
     },
     {
       month: energyRecords?.[1]?.month || "",
-      points: (energyRecords?.[1]?.pointsEarned || 0) + (waterRecords?.[1]?.pointsEarned || 0),
+      ecoBits: (energyRecords?.[1]?.ecoBitsEarned || 0) + (waterRecords?.[1]?.ecoBitsEarned || 0),
     },
     {
       month: energyRecords?.[0]?.month || "",
-      points: (energyRecords?.[0]?.pointsEarned || 0) + (waterRecords?.[0]?.pointsEarned || 0),
+      ecoBits: (energyRecords?.[0]?.ecoBitsEarned || 0) + (waterRecords?.[0]?.ecoBitsEarned || 0),
     },
   ].filter(d => d.month);
 
@@ -81,11 +81,11 @@ export default function Progress() {
       achieved: (routes?.length || 0) > 0,
     },
     {
-      title: "100 Points Club",
-      description: "Earned your first 100 points",
+      title: "100 EcoBits Club",
+      description: "Earned your first 100 ecoBits",
       date: user?.createdAt,
       icon: Trophy,
-      achieved: (user?.points || 0) >= 100,
+      achieved: (user?.ecoBits || 0) >= 100,
     },
     {
       title: "Carbon Champion",
@@ -107,7 +107,7 @@ export default function Progress() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Points Earned</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total EcoBits Earned</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
@@ -115,7 +115,7 @@ export default function Progress() {
                 <Trophy className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-3xl font-bold" data-testid="stat-total-points">{totalPointsEarned}</p>
+                <p className="text-3xl font-bold" data-testid="stat-total-ecoBits">{totalEcoBitsEarned}</p>
                 <p className="text-xs text-muted-foreground">All-time earnings</p>
               </div>
             </div>
@@ -157,23 +157,59 @@ export default function Progress() {
         </Card>
       </div>
 
-      {/* Points Trend */}
+      {/* EcoBits Trend */}
       {achievementsData.length > 0 && (
-        <Card>
+        <Card className="glass-card nature-border leaf-pattern">
           <CardHeader>
-            <CardTitle>Points Earned Over Time</CardTitle>
-            <CardDescription>Your monthly sustainability achievements</CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 text-white shadow-lg pulse-glow">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="gradient-text text-2xl">EcoBits Earned Over Time</CardTitle>
+                <CardDescription className="text-emerald-200/70">Track your monthly sustainability achievements</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={achievementsData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="points" stroke="hsl(var(--primary))" strokeWidth={3} name="Points" />
-              </LineChart>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={achievementsData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorEcoBits" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0.6}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#10b98120" />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#10b981" 
+                  style={{ fontSize: '12px', fontWeight: 500 }}
+                />
+                <YAxis 
+                  stroke="#10b981"
+                  style={{ fontSize: '12px', fontWeight: 500 }}
+                  label={{ value: 'EcoBits', angle: -90, position: 'insideLeft', fill: '#10b981' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                    border: '1px solid #10b981',
+                    borderRadius: '8px',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                  labelStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+                <Bar 
+                  dataKey="ecoBits" 
+                  fill="url(#colorEcoBits)"
+                  radius={[8, 8, 0, 0]}
+                  name="EcoBits Earned"
+                />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

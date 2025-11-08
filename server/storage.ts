@@ -12,6 +12,7 @@ import {
   postLikes,
   postComments,
   userFollows,
+  proofDocuments,
   type User,
   type UpsertUser,
   type InsertPost,
@@ -36,6 +37,8 @@ import {
   type PostComment,
   type InsertUserFollow,
   type UserFollow,
+  type ProofDocument,
+  type InsertProofDocument,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -43,11 +46,14 @@ import { eq, desc, and, sql } from "drizzle-orm";
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  updateUserPoints(userId: string, pointsDelta: number, carbonSavedDelta?: number, waterSavedDelta?: number): Promise<void>;
+  updateUserEcoBits(userId: string, EcoBitsDelta: number, carbonSavedDelta?: number, waterSavedDelta?: number): Promise<void>;
   
   // Posts operations
   createPost(post: InsertPost): Promise<Post>;
+  updatePost(postId: string, data: Partial<InsertPost>): Promise<Post>;
+  deletePost(postId: string): Promise<void>;
   getAllPosts(): Promise<any[]>;
   
   // Energy operations
@@ -83,16 +89,19 @@ export interface IStorage {
   createComment(data: InsertPostComment): Promise<any>;
   getPostComments(postId: string): Promise<any[]>;
   
-  // Social features - User follows
-  followUser(followerId: string, followingId: string): Promise<UserFollow>;
-  unfollowUser(followerId: string, followingId: string): Promise<void>;
-  isFollowing(followerId: string, followingId: string): Promise<boolean>;
+  // Social features - User follows (connection requests)
+  sendConnectionRequest(followerId: string, followingId: string): Promise<UserFollow>;
+  acceptConnectionRequest(requestId: string): Promise<void>;
+  rejectConnectionRequest(requestId: string): Promise<void>;
+  cancelConnectionRequest(followerId: string, followingId: string): Promise<void>;
+  getConnectionStatus(followerId: string, followingId: string): Promise<string | null>; // "pending", "accepted", null
+  getPendingRequests(userId: string): Promise<any[]>;
   getFollowerCount(userId: string): Promise<number>;
   getFollowingCount(userId: string): Promise<number>;
   
   // Leaderboard
   getLeaderboard(): Promise<{
-    byPoints: User[];
+    byEcoBits: User[];
     byCarbonSaved: User[];
     byWaterSaved: User[];
   }>;
@@ -102,6 +111,11 @@ export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
@@ -120,14 +134,14 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserPoints(userId: string, pointsDelta: number, carbonSavedDelta: number = 0, waterSavedDelta: number = 0): Promise<void> {
+  async updateUserEcoBits(userId: string, EcoBitsDelta: number, carbonSavedDelta: number = 0, waterSavedDelta: number = 0): Promise<void> {
     const user = await this.getUser(userId);
     if (!user) return;
     
     await db
       .update(users)
       .set({
-        points: user.points + pointsDelta,
+        ecoBits: user.ecoBits + EcoBitsDelta,
         totalCarbonSaved: user.totalCarbonSaved + carbonSavedDelta,
         totalWaterSaved: user.totalWaterSaved + waterSavedDelta,
         updatedAt: new Date(),
@@ -141,6 +155,21 @@ export class DatabaseStorage implements IStorage {
     return post;
   }
 
+  async updatePost(postId: string, data: Partial<InsertPost>): Promise<Post> {
+    const [post] = await db
+      .update(posts)
+      .set(data)
+      .where(eq(posts.id, postId))
+      .returning();
+    return post;
+  }
+
+  async deletePost(postId: string): Promise<void> {
+    const result = await db.delete(posts).where(eq(posts.id, postId)).returning();
+    console.log("Delete result:", result.length > 0 ? "Post deleted" : "Post not found");
+    return;
+  }
+
   async getAllPosts(): Promise<any[]> {
     const results = await db
       .select({
@@ -148,9 +177,11 @@ export class DatabaseStorage implements IStorage {
         userId: posts.userId,
         content: posts.content,
         achievementType: posts.achievementType,
+        mediaUrl: posts.mediaUrl,
+        mediaType: posts.mediaType,
         carbonSaved: posts.carbonSaved,
         waterSaved: posts.waterSaved,
-        pointsEarned: posts.pointsEarned,
+        ecoBitsEarned: posts.ecoBitsEarned,
         likes: posts.likes,
         createdAt: posts.createdAt,
         user: {
@@ -219,7 +250,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(scratchCards)
       .where(eq(scratchCards.isActive, true))
-      .orderBy(scratchCards.pointsCost);
+      .orderBy(scratchCards.ecoBitsCost);
   }
 
   async createUserScratchCard(data: InsertUserScratchCard): Promise<UserScratchCard> {
@@ -241,7 +272,7 @@ export class DatabaseStorage implements IStorage {
           name: scratchCards.name,
           description: scratchCards.description,
           category: scratchCards.category,
-          pointsCost: scratchCards.pointsCost,
+          ecoBitsCost: scratchCards.ecoBitsCost,
         },
       })
       .from(userScratchCards)
@@ -268,7 +299,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(coupons)
       .where(eq(coupons.isActive, true))
-      .orderBy(coupons.pointsCost);
+      .orderBy(coupons.ecoBitsCost);
   }
 
   async createUserCoupon(data: InsertUserCoupon): Promise<UserCoupon> {
@@ -291,7 +322,7 @@ export class DatabaseStorage implements IStorage {
           discountPercentage: coupons.discountPercentage,
           brandName: coupons.brandName,
           category: coupons.category,
-          pointsCost: coupons.pointsCost,
+          ecoBitsCost: coupons.ecoBitsCost,
           validUntil: coupons.validUntil,
         },
       })
@@ -373,39 +404,103 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({ ...r, user: r.user }));
   }
 
-  // Social features - User follows
-  async followUser(followerId: string, followingId: string): Promise<UserFollow> {
-    const [follow] = await db.insert(userFollows).values({ followerId, followingId }).returning();
+  // Social features - User follows (connection requests)
+  async sendConnectionRequest(followerId: string, followingId: string): Promise<UserFollow> {
+    const [follow] = await db.insert(userFollows).values({ 
+      followerId, 
+      followingId,
+      status: 'pending'
+    }).returning();
     return follow;
   }
 
-  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+  async acceptConnectionRequest(requestId: string): Promise<void> {
+    await db
+      .update(userFollows)
+      .set({ status: 'accepted', respondedAt: new Date() })
+      .where(eq(userFollows.id, requestId));
+  }
+
+  async rejectConnectionRequest(requestId: string): Promise<void> {
+    await db
+      .update(userFollows)
+      .set({ status: 'rejected', respondedAt: new Date() })
+      .where(eq(userFollows.id, requestId));
+  }
+
+  async cancelConnectionRequest(followerId: string, followingId: string): Promise<void> {
     await db.delete(userFollows).where(
-      and(eq(userFollows.followerId, followerId), eq(userFollows.followingId, followingId))
+      and(
+        eq(userFollows.followerId, followerId), 
+        eq(userFollows.followingId, followingId)
+      )
     );
   }
 
-  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+  async getConnectionStatus(followerId: string, followingId: string): Promise<string | null> {
     const [follow] = await db
       .select()
       .from(userFollows)
-      .where(and(eq(userFollows.followerId, followerId), eq(userFollows.followingId, followingId)));
-    return !!follow;
+      .where(and(
+        eq(userFollows.followerId, followerId), 
+        eq(userFollows.followingId, followingId)
+      ));
+    return follow?.status || null;
+  }
+
+  async getPendingRequests(userId: string): Promise<any[]> {
+    const results = await db
+      .select({
+        id: userFollows.id,
+        followerId: userFollows.followerId,
+        followingId: userFollows.followingId,
+        status: userFollows.status,
+        createdAt: userFollows.createdAt,
+        user: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          ecoBits: users.ecoBits,
+        },
+      })
+      .from(userFollows)
+      .leftJoin(users, eq(userFollows.followerId, users.id))
+      .where(and(
+        eq(userFollows.followingId, userId),
+        eq(userFollows.status, 'pending')
+      ))
+      .orderBy(desc(userFollows.createdAt));
+    
+    return results.map(r => ({ ...r, user: r.user }));
   }
 
   async getFollowerCount(userId: string): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` }).from(userFollows).where(eq(userFollows.followingId, userId));
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(userFollows)
+      .where(and(
+        eq(userFollows.followingId, userId),
+        eq(userFollows.status, 'accepted')
+      ));
     return Number(result[0]?.count ?? 0);
   }
 
   async getFollowingCount(userId: string): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` }).from(userFollows).where(eq(userFollows.followerId, userId));
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(userFollows)
+      .where(and(
+        eq(userFollows.followerId, userId),
+        eq(userFollows.status, 'accepted')
+      ));
     return Number(result[0]?.count ?? 0);
   }
 
   // Leaderboard
   async getLeaderboard(): Promise<{
-    byPoints: User[];
+    byEcoBits: User[];
     byCarbonSaved: User[];
     byWaterSaved: User[];
   }> {
@@ -415,18 +510,54 @@ export class DatabaseStorage implements IStorage {
       firstName: users.firstName,
       lastName: users.lastName,
       profileImageUrl: users.profileImageUrl,
-      points: users.points,
+      ecoBits: users.ecoBits,
       totalCarbonSaved: users.totalCarbonSaved,
       totalWaterSaved: users.totalWaterSaved,
     };
 
-    const [byPoints, byCarbonSaved, byWaterSaved] = await Promise.all([
-      db.select(safeFields).from(users).orderBy(desc(users.points)).limit(10),
+    const [byEcoBits, byCarbonSaved, byWaterSaved] = await Promise.all([
+      db.select(safeFields).from(users).orderBy(desc(users.ecoBits)).limit(10),
       db.select(safeFields).from(users).orderBy(desc(users.totalCarbonSaved)).limit(10),
       db.select(safeFields).from(users).orderBy(desc(users.totalWaterSaved)).limit(10),
     ]);
 
-    return { byPoints, byCarbonSaved, byWaterSaved };
+    return { byEcoBits, byCarbonSaved, byWaterSaved };
+  }
+
+  // Proof Documents operations
+  async getUserProofDocuments(userId: string) {
+    return await db
+      .select()
+      .from(proofDocuments)
+      .where(eq(proofDocuments.userId, userId))
+      .orderBy(desc(proofDocuments.uploadedAt));
+  }
+
+  async createProofDocument(data: any) {
+    const [proof] = await db.insert(proofDocuments).values(data).returning();
+    return proof;
+  }
+
+  async verifyProofDocument(proofId: string, status: string, verifierId: string, rejectionReason?: string) {
+    const [proof] = await db
+      .update(proofDocuments)
+      .set({
+        verificationStatus: status,
+        verifiedAt: new Date(),
+        verifiedBy: verifierId,
+        rejectionReason: rejectionReason || null,
+      })
+      .where(eq(proofDocuments.id, proofId))
+      .returning();
+    return proof;
+  }
+
+  async getAllPendingProofs() {
+    return await db
+      .select()
+      .from(proofDocuments)
+      .where(eq(proofDocuments.verificationStatus, 'pending'))
+      .orderBy(desc(proofDocuments.uploadedAt));
   }
 }
 
