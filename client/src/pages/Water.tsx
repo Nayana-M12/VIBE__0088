@@ -16,7 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-const formSchema = insertWaterRecordSchema.extend({
+const formSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/, "Invalid month format"),
   billAmount: z.coerce.number().positive("Bill amount must be positive"),
   consumption: z.coerce.number().positive("Consumption must be positive"),
@@ -29,9 +29,8 @@ export default function Water() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       month: new Date().toISOString().slice(0, 7),
-      billAmount: 0,
-      consumption: 0,
-      pointsEarned: 0,
+      billAmount: "" as any,
+      consumption: "" as any,
     },
   });
 
@@ -48,9 +47,8 @@ export default function Water() {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       form.reset({
         month: new Date().toISOString().slice(0, 7),
-        billAmount: 0,
-        consumption: 0,
-        pointsEarned: 0,
+        billAmount: "" as any,
+        consumption: "" as any,
       });
       toast({
         title: "Analysis Complete!",
