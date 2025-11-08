@@ -273,24 +273,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const followerId = req.user.claims.sub;
       const { userId: followingId } = req.params;
       
+      console.log("Connection request - Follower:", followerId, "Following:", followingId);
+      
       if (followerId === followingId) {
         return res.status(400).json({ message: "Cannot connect with yourself" });
       }
       
       const status = await storage.getConnectionStatus(followerId, followingId);
+      console.log("Current status:", status);
       
       if (status === 'pending' || status === 'accepted') {
         // Cancel/remove connection
+        console.log("Cancelling connection...");
         await storage.cancelConnectionRequest(followerId, followingId);
+        console.log("Connection cancelled, returning null");
         res.json({ status: null });
       } else {
         // Send connection request
-        await storage.sendConnectionRequest(followerId, followingId);
+        console.log("Sending new connection request...");
+        const result = await storage.sendConnectionRequest(followerId, followingId);
+        console.log("Connection request created:", result);
         res.json({ status: 'pending' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error toggling connection:", error);
-      res.status(500).json({ message: "Failed to toggle connection" });
+      console.error("Error details:", error.message, error.stack);
+      res.status(500).json({ message: error.message || "Failed to toggle connection" });
     }
   });
 
