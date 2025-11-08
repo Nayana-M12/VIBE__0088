@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Map, Leaf, Clock, Navigation, AlertCircle } from "lucide-react";
+import { Map, Leaf, Clock, Navigation, AlertCircle, Car, Bike, PersonStanding } from "lucide-react";
 import type { EcoRoute } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -19,8 +20,17 @@ const formSchema = z.object({
   endLocation: z.string().min(1, "End location is required"),
 });
 
+type RouteOption = {
+  mode: 'driving' | 'cycling' | 'walking';
+  distance: number;
+  duration: number;
+  carbonEmissions: number;
+  carbonSaved: number;
+};
+
 export default function Routes() {
   const { toast } = useToast();
+  const [calculatedRoutes, setCalculatedRoutes] = useState<RouteOption[]>([]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -38,8 +48,10 @@ export default function Routes() {
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       return await apiRequest("POST", "/api/routes/calculate", values);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+    onSuccess: (data: any) => {
+      if (data.routes) {
+        setCalculatedRoutes(data.routes);
+      }
       toast({
         title: "Routes Calculated!",
         description: "Your eco-friendly route options are ready.",
@@ -159,6 +171,91 @@ export default function Routes() {
           </Form>
         </CardContent>
       </Card>
+
+      {/* Calculated Route Options */}
+      {calculatedRoutes.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Route Options</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {calculatedRoutes.map((option, index) => {
+              const icons = {
+                driving: Car,
+                cycling: Bike,
+                walking: PersonStanding,
+              };
+              const Icon = icons[option.mode];
+              const modeColors = {
+                driving: "text-orange-500",
+                cycling: "text-green-500",
+                walking: "text-blue-500",
+              };
+              
+              return (
+                <Card key={index} className="hover-elevate" data-testid={`card-option-${option.mode}`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg capitalize flex items-center gap-2">
+                        <Icon className={`w-5 h-5 ${modeColors[option.mode]}`} />
+                        {option.mode}
+                      </CardTitle>
+                      {option.carbonSaved > 0 && (
+                        <Badge variant="default">
+                          <Leaf className="w-3 h-3 mr-1" />
+                          Eco
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Distance</span>
+                      <span className="font-medium">{option.distance.toFixed(1)} km</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Duration
+                      </span>
+                      <span className="font-medium">{Math.round(option.duration / 60)} min</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">CO₂ Emissions</span>
+                      <span className="font-medium">{option.carbonEmissions.toFixed(2)} kg</span>
+                    </div>
+                    {option.carbonSaved > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Leaf className="w-3 h-3" />
+                          Carbon Saved
+                        </span>
+                        <span className="font-medium text-primary">{option.carbonSaved.toFixed(2)} kg</span>
+                      </div>
+                    )}
+                    <Button
+                      className="w-full mt-2"
+                      onClick={() => {
+                        const pointsEarned = Math.round(option.carbonSaved * 10);
+                        selectRouteMutation.mutate({
+                          startLocation: form.getValues("startLocation"),
+                          endLocation: form.getValues("endLocation"),
+                          distance: option.distance,
+                          carbonSaved: option.carbonSaved,
+                          routeType: option.mode,
+                          pointsEarned,
+                        });
+                      }}
+                      disabled={selectRouteMutation.isPending}
+                      data-testid={`button-select-${option.mode}`}
+                    >
+                      {selectRouteMutation.isPending ? "Saving..." : `Select & Earn ${Math.round(option.carbonSaved * 10)} pts`}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Latest Routes */}
       {latestRoutes.length > 0 && (

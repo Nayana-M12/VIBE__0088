@@ -281,8 +281,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/routes/calculate', isAuthenticated, async (req: any, res) => {
     try {
-      // Mock route calculation (in real app, would use mapping API)
-      res.json({ success: true });
+      const { startLocation, endLocation } = req.body;
+      
+      if (!startLocation || !endLocation) {
+        return res.status(400).json({ message: "Start and end locations are required" });
+      }
+
+      const { calculateEcoRoutes } = await import('./mapbox');
+      const routes = await calculateEcoRoutes(startLocation, endLocation);
+      
+      res.json({ routes });
     } catch (error) {
       console.error("Error calculating routes:", error);
       res.status(400).json({ message: "Failed to calculate routes" });
