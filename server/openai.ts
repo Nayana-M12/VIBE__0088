@@ -1,7 +1,6 @@
 // Referenced from javascript_openai blueprint
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function analyzeEnergyUsage(data: {
@@ -28,7 +27,7 @@ Provide a JSON response with:
 Be specific and practical. Focus on the most impactful changes.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -83,7 +82,7 @@ Provide a JSON response with:
 Be specific and practical.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -117,7 +116,7 @@ Be specific and practical.`;
 export async function chatWithAdvisor(message: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",

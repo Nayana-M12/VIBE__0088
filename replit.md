@@ -56,7 +56,7 @@ Preferred communication style: Simple, everyday language.
 - JSON response format with captured logging
 
 **AI Integration (OpenAI)**
-- GPT-5 model for energy/water consumption analysis
+- GPT-4o model for energy/water consumption analysis
 - Structured JSON responses for predictive wastage calculations
 - AI Sustainability Advisor chatbot for personalized eco-tips
 - System prompts engineered for practical, actionable insights
@@ -88,7 +88,7 @@ Preferred communication style: Simple, everyday language.
 
 **Third-Party Services**
 - **Neon Database**: Serverless PostgreSQL hosting with connection pooling
-- **OpenAI API**: GPT-5 for consumption analysis and conversational AI advisor
+- **OpenAI API**: GPT-4o for consumption analysis and conversational AI advisor
 - **Replit Auth**: OIDC-based authentication provider (issuer: replit.com/oidc)
 
 **Key Libraries**
