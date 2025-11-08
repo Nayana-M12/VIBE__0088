@@ -36,7 +36,8 @@ export default function Rewards() {
 
   const redeemScratchCard = useMutation({
     mutationFn: async (cardId: string) => {
-      return await apiRequest("POST", "/api/rewards/redeem-scratch-card", { scratchCardId: cardId });
+      const res = await apiRequest("POST", "/api/rewards/redeem-scratch-card", { scratchCardId: cardId });
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rewards/scratch-cards"] });
@@ -69,7 +70,8 @@ export default function Rewards() {
 
   const redeemCoupon = useMutation({
     mutationFn: async (couponId: string) => {
-      return await apiRequest("POST", "/api/rewards/redeem-coupon", { couponId });
+      const res = await apiRequest("POST", "/api/rewards/redeem-coupon", { couponId });
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rewards/coupons"] });
@@ -102,7 +104,8 @@ export default function Rewards() {
 
   const scratchMutation = useMutation({
     mutationFn: async (userCardId: string) => {
-      return await apiRequest("POST", "/api/rewards/scratch", { userCardId });
+      const res = await apiRequest("POST", "/api/rewards/scratch", { userCardId });
+      return await res.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/rewards/my-scratch-cards"] });

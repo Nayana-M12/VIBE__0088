@@ -36,7 +36,7 @@ export default function Advisor() {
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
       const response = await apiRequest("POST", "/api/advisor/chat", { message });
-      return response;
+      return await response.json();
     },
     onSuccess: (data: any) => {
       setMessages(prev => [...prev, { role: "assistant", content: data.response }]);
