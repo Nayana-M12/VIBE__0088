@@ -46,7 +46,8 @@ export default function Routes() {
 
   const calculateMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      return await apiRequest("POST", "/api/routes/calculate", values);
+      const res = await apiRequest("POST", "/api/routes/calculate", values);
+      return await res.json();
     },
     onSuccess: (data: any) => {
       if (data.routes) {
@@ -84,6 +85,7 @@ export default function Routes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setCalculatedRoutes([]);
       form.reset();
       toast({
         title: "Route Selected!",
