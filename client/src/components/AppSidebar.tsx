@@ -29,6 +29,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Leaf } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
 
 const menuItems = [
   {
@@ -142,7 +143,10 @@ export function AppSidebar() {
               onClick={async () => {
                 try {
                   await fetch('/api/auth/logout', { method: 'POST' });
-                  window.location.href = '/login';
+                  // Clear all cached queries
+                  queryClient.clear();
+                  // Force reload to clear all state
+                  window.location.href = '/';
                 } catch (error) {
                   console.error('Logout failed:', error);
                 }
