@@ -118,7 +118,7 @@ export function setupLocalAuth(app: Express) {
     }
   });
 
-  // Logout endpoint
+  // Logout endpoint (POST)
   app.post("/api/auth/logout", (req: any, res) => {
     req.session.destroy((err: any) => {
       if (err) {
@@ -126,6 +126,17 @@ export function setupLocalAuth(app: Express) {
         return res.status(500).json({ message: "Logout failed" });
       }
       res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  // Logout endpoint (GET) - for direct navigation
+  app.get("/api/logout", (req: any, res) => {
+    req.session.destroy((err: any) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.redirect('/login?error=logout_failed');
+      }
+      res.redirect('/login');
     });
   });
 }
